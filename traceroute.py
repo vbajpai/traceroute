@@ -3,6 +3,7 @@
 import optparse
 import socket
 import sys
+import select
 
 icmp = socket.getprotobyname('icmp')
 udp = socket.getprotobyname('udp')
@@ -13,23 +14,28 @@ def create_sockets(ttl):
     socket and a sending socket.
     """
     recv_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, icmp)    
+    recv_socket.setblocking(0)
     send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, udp)
     send_socket.setsockopt(socket.SOL_IP, socket.IP_TTL, ttl)
     return recv_socket, send_socket
 
 def main(dest_name, port, max_hops):
     dest_addr = socket.gethostbyname(dest_name)
+    timeout_in_seconds = 1
     ttl = 1
     while True:
         recv_socket, send_socket = create_sockets(ttl)
-        recv_socket.bind(("", port))
         send_socket.sendto("", (dest_name, port))
         curr_addr = None
         curr_name = None
         try:
             # socket.recvfrom() gives back (data, address), but we
             # only care about the latter.
-            _, curr_addr = recv_socket.recvfrom(512)
+            ready = select.select([recv_socket], [], [], timeout_in_seconds)
+            if not ready[0]:
+                print 'timed out'
+                return
+            _, curr_addr = recv_socket.recvfrom(2048)
             curr_addr = curr_addr[0]  # address is given as tuple
             try:
                 curr_name = socket.gethostbyaddr(curr_addr)[0]
