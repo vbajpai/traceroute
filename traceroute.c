@@ -33,10 +33,12 @@ int traceroute(char* dest_hostname){
   struct addrinfo*        dest_addrinfo_collection;
   struct addrinfo*        dest_addrinfo_item;
   struct sockaddr*        dest_addr;
-  struct sockaddr_in nexthop_addr_in;
+  struct sockaddr_in      nexthop_addr_in;
+  struct timeval          tv;
   int                     recv_socket;
   int                     send_socket;
   char                    buf[512];
+  char                    nexthop_hostname[NI_MAXHOST];
   char                    dest_addr_str[INET_ADDRSTRLEN];
   char                    nexthop_addr_str[INET_ADDRSTRLEN];
   unsigned int            nexthop_addr_in_len;
@@ -66,17 +68,18 @@ int traceroute(char* dest_hostname){
     }
   }
 
-  /* loop until you reach the reach the destination;
-     or your TTL exceeds MAX HOPS */
-  
+  tv.tv_sec = 5;
+  tv.tv_usec = 0;
   while(1){
-    //int recv_socket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    int recv_socket = socket(PF_INET, SOCK_RAW, IPPROTO_ICMP);
+    fd_set fds;
+    FD_ZERO(&fds);
+    recv_socket = socket(PF_INET, SOCK_RAW, IPPROTO_ICMP);
     if(recv_socket == -1){
       fprintf(stderr, "\ncannot create receive socket");
       return EXIT_FAILURE;
     }
-    int send_socket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    FD_SET(recv_socket, &fds);
+    send_socket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if(send_socket == -1){
        fprintf(stderr, "\ncannot create send socket");
        return EXIT_FAILURE;
@@ -96,40 +99,54 @@ int traceroute(char* dest_hostname){
        return EXIT_FAILURE;
      }
     
-    nexthop_addr_in_len = sizeof(nexthop_addr_in);
-    recvfrom(recv_socket, buf, sizeof(buf),
-             0, (struct sockaddr *)&nexthop_addr_in, &nexthop_addr_in_len);
-    get_ip_str((struct sockaddr *)&nexthop_addr_in,
-                nexthop_addr_str, INET_ADDRSTRLEN);
-
-    char nexthop_hostname[NI_MAXHOST];
-    error = getnameinfo((struct sockaddr *)&nexthop_addr_in, 
-                        nexthop_addr_in_len, 
-                        nexthop_hostname, sizeof(nexthop_hostname),
-                        NULL, 0, NI_NAMEREQD);
-    if (error != 0){
-      error = getnameinfo((struct sockaddr *)&nexthop_addr_in, 
-                          nexthop_addr_in_len, 
-                          nexthop_hostname, sizeof(nexthop_hostname),
-                          NULL, 0, NI_NUMERICHOST);
-      if (error != 0){
-        fprintf(stderr, "error in getnameinfo: %s\n", gai_strerror(error));
-        return EXIT_FAILURE;
-      }
-    }                           
-    printf("\n%s, (%s)", nexthop_addr_str, nexthop_hostname);
+    int error = select(recv_socket+1, &fds, NULL, NULL, &tv);
+    if(error == -1){
+      perror("\nselect error");
+      return EXIT_FAILURE;
+    }else if(error == 0){
+      fprintf(stderr, "\ntimeout occurred");
+      return EXIT_FAILURE;
+    }else{
+      if (FD_ISSET(recv_socket, &fds)){
+        nexthop_addr_in_len = sizeof(nexthop_addr_in);
+        recvfrom(recv_socket, buf, sizeof(buf),
+                 0, (struct sockaddr *)&nexthop_addr_in, &nexthop_addr_in_len);
+        get_ip_str((struct sockaddr *)&nexthop_addr_in,
+                    nexthop_addr_str, INET_ADDRSTRLEN);
+        error = getnameinfo((struct sockaddr *)&nexthop_addr_in, 
+                            nexthop_addr_in_len, 
+                            nexthop_hostname, sizeof(nexthop_hostname),
+                            NULL, 0, NI_NAMEREQD);
+        if (error != 0){
+          error = getnameinfo((struct sockaddr *)&nexthop_addr_in, 
+                              nexthop_addr_in_len, 
+                              nexthop_hostname, sizeof(nexthop_hostname),
+                              NULL, 0, NI_NUMERICHOST);
+          if (error != 0){
+            fprintf(stderr, "error in getnameinfo: %s\n", gai_strerror(error));
+            return EXIT_FAILURE;
+          }
+        }
+        printf("\n%s, (%s)", nexthop_addr_str, nexthop_hostname);
+     }
+    }
     ttl++;
     close(recv_socket);
     close(send_socket);
     if (!strcmp(dest_addr_str, nexthop_addr_str))
       break;
   }
-
   freeaddrinfo(dest_addrinfo_collection);
   return EXIT_SUCCESS;
 }
 
-int main(void){
-  int status = traceroute("www.linkedin.com");
+int main(int argc, char* argv[]){
+  if(argc!=2){
+    fprintf(stderr, "\nusage: traceroute host");
+    return EXIT_FAILURE;
+  }
+  
+  char* hostname = argv[1];
+  int status = traceroute(hostname);
   return status;
 }
