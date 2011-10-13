@@ -1,23 +1,19 @@
 #!/usr/bin/python
-
 import optparse
 import socket
 import sys
 import select
 
-icmp = socket.getprotobyname('icmp')
-udp = socket.getprotobyname('udp')
-
 def create_sockets(ttl):
-    """
-    Sets up sockets necessary for the traceroute.  We need a receiving
-    socket and a sending socket.
-    """
-    recv_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, icmp)    
-    recv_socket.setblocking(0)
-    send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, udp)
-    send_socket.setsockopt(socket.SOL_IP, socket.IP_TTL, ttl)
-    return recv_socket, send_socket
+  recv_socket = socket.socket(socket.AF_INET,
+                              socket.SOCK_RAW,
+                              socket.getprotobyname('icmp'))
+  send_socket = socket.socket(socket.AF_INET,
+                              socket.SOCK_DGRAM,
+                              socket.getprotobyname('udp'))
+  send_socket.setsockopt(socket.SOL_IP, socket.IP_TTL, ttl)
+  recv_socket.setblocking(0)
+  return recv_socket, send_socket
 
 def main(dest_name, port, max_hops):
     dest_addr = socket.gethostbyname(dest_name)
@@ -29,14 +25,12 @@ def main(dest_name, port, max_hops):
         curr_addr = None
         curr_name = None
         try:
-            # socket.recvfrom() gives back (data, address), but we
-            # only care about the latter.
             ready = select.select([recv_socket], [], [], timeout_in_seconds)
             if not ready[0]:
                 print 'timed out'
                 return
             _, curr_addr = recv_socket.recvfrom(2048)
-            curr_addr = curr_addr[0]  # address is given as tuple
+            curr_addr = curr_addr[0]
             try:
                 curr_name = socket.gethostbyaddr(curr_addr)[0]
             except socket.error:
@@ -60,18 +54,19 @@ def main(dest_name, port, max_hops):
     return 0
 
 if __name__ == "__main__":
-    parser = optparse.OptionParser(usage="%prog [options] hostname")
-    parser.add_option("-p", "--port", dest="port",
-                      help="Port to use for socket connection [default: %default]",
-                      default=33434, metavar="PORT")
-    parser.add_option("-m", "--max-hops", dest="max_hops",
-                      help="Max hops before giving up [default: %default]",
-                      default=30, metavar="MAXHOPS")
-    options, args = parser.parse_args()
-    if len(args) != 1:
-        parser.error()
-    else:
-        dest_name = args[0]
+  parser = optparse.OptionParser(usage="%prog [options] hostname")
+  parser.add_option("-p", "--port", dest="port",
+                    help="Port to use for socket connection [default: %default]",
+                    default=33434, metavar="PORT")
+  parser.add_option("-m", "--max-hops", dest="max_hops",
+                    help="Max hops before giving up [default: %default]",
+                    default=30, metavar="MAXHOPS")
+  options, args = parser.parse_args()
+  if len(args) != 1:
+    print 'usage: traceroute.py [options] hostname'
+    exit(0)
+  else:
+    dest_name = args[0]
     sys.exit(main(dest_name=dest_name,
-                  port=int(options.port),
-                  max_hops=int(options.max_hops)))
+             port=int(options.port),
+             max_hops=int(options.max_hops)))

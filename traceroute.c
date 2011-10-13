@@ -76,17 +76,20 @@ int traceroute(char* dest_hostname){
     recv_socket = socket(PF_INET, SOCK_RAW, IPPROTO_ICMP);
     if(recv_socket == -1){
       fprintf(stderr, "\ncannot create receive socket");
+      freeaddrinfo(dest_addrinfo_collection);
       return EXIT_FAILURE;
     }
     FD_SET(recv_socket, &fds);
     send_socket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if(send_socket == -1){
        fprintf(stderr, "\ncannot create send socket");
+       freeaddrinfo(dest_addrinfo_collection);
        return EXIT_FAILURE;
      }
     error = setsockopt(send_socket, IPPROTO_IP, IP_TTL, &ttl, sizeof(int));
     if(error != 0){
        perror("\nerror setting socket options");
+       freeaddrinfo(dest_addrinfo_collection);
        return EXIT_FAILURE;
      }
     struct sockaddr_in *dest_addr_in = (struct sockaddr_in*) dest_addr;
@@ -96,15 +99,18 @@ int traceroute(char* dest_hostname){
                    0, (struct sockaddr *)dest_addr_in, sizeof(*dest_addr_in));
     if(error == -1){
        perror("\nerror sending data to destination");
+       freeaddrinfo(dest_addrinfo_collection);
        return EXIT_FAILURE;
      }
     
     int error = select(recv_socket+1, &fds, NULL, NULL, &tv);
     if(error == -1){
       perror("\nselect error");
+      freeaddrinfo(dest_addrinfo_collection);
       return EXIT_FAILURE;
     }else if(error == 0){
       fprintf(stderr, "\ntimeout occurred");
+      freeaddrinfo(dest_addrinfo_collection);
       return EXIT_FAILURE;
     }else{
       if (FD_ISSET(recv_socket, &fds)){
@@ -124,6 +130,7 @@ int traceroute(char* dest_hostname){
                               NULL, 0, NI_NUMERICHOST);
           if (error != 0){
             fprintf(stderr, "error in getnameinfo: %s\n", gai_strerror(error));
+            freeaddrinfo(dest_addrinfo_collection);
             return EXIT_FAILURE;
           }
         }
