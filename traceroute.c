@@ -12,7 +12,7 @@
 
 #define DEBUG 1
 
-char *get_ip_str(const struct sockaddr *sa, char *s, size_t maxlen){
+char *get_ip_str(const struct sockaddr *sa, char *s, unsigned int maxlen){
   switch(sa->sa_family) {
     case AF_INET:
       inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr),s, maxlen);
@@ -44,12 +44,12 @@ int traceroute(char* dest_hostname){
   unsigned int            nexthop_addr_in_len;
   unsigned short          iter;
   unsigned short          ttl = 1;
-  int                     error;
+  long                     error;
 
   /* resolve the domain name into a list of addresses */
   error = getaddrinfo(dest_hostname, NULL, NULL, &dest_addrinfo_collection);
   if (error != 0){
-      fprintf(stderr, "error in getaddrinfo: %s\n", gai_strerror(error));
+      fprintf(stderr, "error in getaddrinfo: %s\n", gai_strerror((int)error));
       return EXIT_FAILURE;
   }
 
