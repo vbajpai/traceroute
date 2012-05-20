@@ -88,7 +88,11 @@ int traceroute(char* dest_hostname){
        freeaddrinfo(dest_addrinfo_collection);
        return EXIT_FAILURE;
      }
-    error = setsockopt(send_socket, IPPROTO_IP, IP_TTL, &ttl, sizeof(unsigned short));
+#if defined(__APPLE__)
+    error = setsockopt(send_socket, IPPROTO_IP, IP_TTL, &ttl, sizeof(&ttl));
+#elif defined(__linux)
+    error = setsockopt(send_socket, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
+#endif
     if(error != 0){
        perror("\nerror setting socket options");
        freeaddrinfo(dest_addrinfo_collection);
