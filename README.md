@@ -1,10 +1,15 @@
-Traceroute
-----------
-
+Compiling
+---------	
+- - -
+	$ make
+	
+Running
+-------	
+- - -
 
 Python Implementation:
 
-	$ sudo python traceroute.py www.google.com
+	$ sudo src/traceroute.py www.google.com
     Warning: www.google.com has multiple addresses; using 74.125.43.104
 	1	10.50.255.251 (10.50.255.251)
 	…
@@ -13,7 +18,7 @@ Python Implementation:
 
 C Implementation:
 
-    $ sudo ./$BIN www.google.com
+    $ sudo bin/traceroute www.google.com
     Warning: www.google.com has multiple addresses; using 74.125.43.104
 	1	10.50.255.251 (10.50.255.251)
 	…
