@@ -45,7 +45,7 @@ int traceroute(char* dest_hostname){
   char                    nexthop_addr_str[INET_ADDRSTRLEN];
   unsigned int            nexthop_addr_in_len;
   unsigned short          iter;
-  unsigned short          ttl = 1;
+  socklen_t               ttl = 1;
   long                     error;
 
   /* resolve the domain name into a list of addresses */
@@ -88,11 +88,7 @@ int traceroute(char* dest_hostname){
        freeaddrinfo(dest_addrinfo_collection);
        return EXIT_FAILURE;
      }
-#if defined(__APPLE__)
-    error = setsockopt(send_socket, IPPROTO_IP, IP_TTL, &ttl, sizeof(&ttl));
-#elif defined(__linux)
     error = setsockopt(send_socket, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
-#endif
     if(error != 0){
        perror("\nerror setting socket options");
        freeaddrinfo(dest_addrinfo_collection);
