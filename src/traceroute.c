@@ -47,6 +47,7 @@ int traceroute(char* dest_hostname){
   unsigned short          iter;
   socklen_t               ttl = 1;
   long                     error;
+  socklen_t               maxhops = 64;
 
   /* resolve the domain name into a list of addresses */
   error = getaddrinfo(dest_hostname, NULL, NULL, &dest_addrinfo_collection);
@@ -64,8 +65,10 @@ int traceroute(char* dest_hostname){
       get_ip_str(dest_addr, dest_addr_str, INET_ADDRSTRLEN);
     }
     else{
-      printf("\nWarning: %s has multiple addresses; using %s", dest_hostname,
-                                                               dest_addr_str);
+
+      printf("\nWarning: %s has multiple addresses; using %s, %u hops max",
+          dest_hostname, dest_addr_str, maxhops);
+
       break;
     }
   }
@@ -111,9 +114,8 @@ int traceroute(char* dest_hostname){
       freeaddrinfo(dest_addrinfo_collection);
       return EXIT_FAILURE;
     }else if(error == 0){
-      fprintf(stderr, "\ntimeout occurred");
-      freeaddrinfo(dest_addrinfo_collection);
-      return EXIT_FAILURE;
+      fprintf(stdout, "\n%u\t*",ttl);
+      fflush(stdin);
     }else{
       if (FD_ISSET(recv_socket, &fds)){
         nexthop_addr_in_len = sizeof(nexthop_addr_in);
@@ -136,14 +138,19 @@ int traceroute(char* dest_hostname){
             return EXIT_FAILURE;
           }
         }
-        printf("\n%s, (%s)", nexthop_addr_str, nexthop_hostname);
+        printf("\n%u\t%s, (%s)", ttl, nexthop_hostname, nexthop_addr_str);
      }
     }
-    ttl++;
+
+    if (ttl == maxhops)
+      break;
+
     close(recv_socket);
     close(send_socket);
     if (!strcmp(dest_addr_str, nexthop_addr_str))
       break;
+
+    ttl++;
   }
   freeaddrinfo(dest_addrinfo_collection);
   return EXIT_SUCCESS;
